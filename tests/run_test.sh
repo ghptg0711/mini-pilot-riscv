@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/.."
 FIX=tests/fixtures/raw-claude.jsonl
 EXP=tests/expected/normalized.jsonl
-norm(){ sed -E 's/"event.id": "[^"]*"/"event.id": "<ID>"/'; }
+norm(){ sed -E 's/"event.id": "[^"]*"/"event.id": "<ID>"/; s/"observed_time_unix_nano": [0-9]+/"observed_time_unix_nano": <T>"/'; }
 
 ./build/mini-pilot            "$FIX" | norm > /tmp/out-x86.jsonl
 qemu-riscv64 ./build/mini-pilot-riscv64 "$FIX" | norm > /tmp/out-riscv.jsonl

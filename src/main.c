@@ -40,6 +40,22 @@ static unsigned long long fnv1a(const char *s) {
   return h;
 }
 
+// 采集时刻（observed_time_unix_nano）：与语义时间 time_unix_nano 区分，
+// schema 定义"采集器观察到事件的时刻，可能与源事件时间不同"。
+static long long now_nano(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+
+// W3C TraceID(32hex)/SpanID(16hex)。确定性派生自 session+序号：
+// 优点是测试可复现；生产实现应使用真随机（如 Pilot 依赖的 OTel SDK）。
+static void derive_trace(const char *session, char *trace, char *span) {
+  unsigned long long a = fnv1a(session), b = fnv1a(session + 1);
+  snprintf(trace, 33, "%016llx%016llx", a, b);
+  snprintf(span, 17, "%016llx", fnv1a(session) ^ (seq * 0x9e3779b97f4a7c15ULL));
+}
+
 static const char *map_event_name(const char *type, const char *status) {
   if (strcmp(type, "request") == 0)  return "llm.request";
   if (strcmp(type, "response") == 0) return "llm.response";
@@ -89,10 +105,15 @@ int main(int argc, char **argv) {
     long long nano = iso_to_nano(ts);
 
     // ---- 输出 GenAI 事件（Required/Recommended 字段子集）----
+    char trace[33] = "", span[17] = "";
+    if (session[0]) derive_trace(session, trace, span);
+    long long onano = now_nano();
     printf("{\"time_unix_nano\": %lld, ", nano);
+    printf("\"observed_time_unix_nano\": %lld, ", onano);
     printf("\"event.id\": \"%s\", ", eid);
     printf("\"event.name\": \"%s\", ", ename);
     printf("\"user.id\": \"local-user\", ");
+    if (trace[0]) printf("\"trace_id\": \"%s\", \"span_id\": \"%s\", ", trace, span);
     printf("\"host.name\": \"%s\", ", strcmp(ename, "") == 0 ? "" : "riscv-qemu");
     printf("\"gen_ai.agent.type\": \"claude-code\", ");
     printf("\"gen_ai.provider.name\": \"anthropic\"");
