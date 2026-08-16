@@ -1,8 +1,9 @@
-// v0.2: 规范化为 loongsuite-pilot 的 GenAI 输出事件 schema（核心字段子集）
+// mini-pilot: 将 agent 会话日志规范化为 loongsuite-pilot 的 GenAI 输出事件 schema
 // 字段定义来源: loongsuite-pilot/docs/output-event-schema.md
-//   time_unix_nano(必) / event.id(必) / event.name(必) / user.id(必)
-//   gen_ai.agent.type(必) / gen_ai.provider.name(必)
-//   gen_ai.session.id / gen_ai.request|response.model / gen_ai.usage.*
+//   Required: time_unix_nano / event.id / event.name / user.id /
+//             gen_ai.agent.type / gen_ai.provider.name
+//   Recommended: gen_ai.session.id / model / usage.* （按事件类型）
+//   Opt-In: gen_ai.input.messages（--content 输出，--mask 时内容脱敏）
 // 事件映射: request->llm.request  response->llm.response
 //           tool+call->tool.call   tool+result->tool.result
 #include <stdio.h>
@@ -30,6 +31,15 @@ static void gen_event_id(char *out, int outsz) {
   snprintf(out, outsz, "mp-%llu-%llu", (unsigned long long)time(NULL) % 100000, ++seq);
 }
 
+// FNV-1a 64bit —— 用于 --mask 内容脱敏指纹。
+// 教学级取舍：非加密哈希，仅用于 demo 展示"内容不可逆输出"机制；
+// 生产实现应使用 Pilot masking 文档的规则脱敏或 SHA-256。
+static unsigned long long fnv1a(const char *s) {
+  unsigned long long h = 1469598103934665603ULL;
+  while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211ULL; }
+  return h;
+}
+
 static const char *map_event_name(const char *type, const char *status) {
   if (strcmp(type, "request") == 0)  return "llm.request";
   if (strcmp(type, "response") == 0) return "llm.response";
@@ -38,9 +48,22 @@ static const char *map_event_name(const char *type, const char *status) {
   return "other";
 }
 
+// 命令行: mini-pilot <session.jsonl> [--content] [--mask]
+//   --content  输出 Opt-In 内容字段 gen_ai.input.messages（默认不输出，遵循 schema 的 Opt-In 语义）
+//   --mask     配合 --content，将内容替换为 FNV-1a 指纹（脱敏演示）
 int main(int argc, char **argv) {
-  if (argc < 2) { fprintf(stderr, "usage: %s <session.jsonl> [--mask]\n", argv[0]); return 1; }
-  FILE *f = fopen(argv[1], "r");
+  int emit_content = 0, mask = 0;
+  const char *path = NULL;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--content") == 0) emit_content = 1;
+    else if (strcmp(argv[i], "--mask") == 0) mask = 1;
+    else if (!path) path = argv[i];
+  }
+  if (!path) {
+    fprintf(stderr, "usage: %s <session.jsonl> [--content] [--mask]\n", argv[0]);
+    return 1;
+  }
+  FILE *f = fopen(path, "r");
   if (!f) { perror("fopen"); return 1; }
 
   char line[LINE_MAX];
@@ -49,7 +72,7 @@ int main(int argc, char **argv) {
     if (line[0] == '\0') continue;
 
     char ts[FIELD_MAX] = "", type[64] = "", status[64] = "", model[FIELD_MAX] = "";
-    char session[FIELD_MAX] = "", tool[FIELD_MAX] = "";
+    char session[FIELD_MAX] = "", tool[FIELD_MAX] = "", text[LINE_MAX] = "";
     double tin = 0, tout = 0;
     json_get_str(line, "ts", ts, sizeof(ts));
     json_get_str(line, "type", type, sizeof(type));
@@ -57,6 +80,7 @@ int main(int argc, char **argv) {
     json_get_str(line, "model", model, sizeof(model));
     json_get_str(line, "session", session, sizeof(session));
     json_get_str(line, "tool", tool, sizeof(tool));
+    json_get_str(line, "text", text, sizeof(text));
     json_get_num(line, "tokens_in", &tin);
     json_get_num(line, "tokens_out", &tout);
 
@@ -84,6 +108,16 @@ int main(int argc, char **argv) {
     if (strcmp(ename, "llm.response") == 0) {
       printf(", \"gen_ai.usage.input_tokens\": %d, \"gen_ai.usage.output_tokens\": %d, \"gen_ai.usage.total_tokens\": %d",
              (int)tin, (int)tout, (int)(tin + tout));
+    }
+    // Opt-In 内容字段（--content）：llm.request 的用户输入 / llm.response 的输出文本
+    if (emit_content && text[0] &&
+        (strcmp(ename, "llm.request") == 0 || strcmp(ename, "llm.response") == 0)) {
+      const char *role = (strcmp(ename, "llm.request") == 0) ? "user" : "assistant";
+      if (mask)
+        printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content.masked\": \"fnv1a:%016llx\"}]",
+               role, fnv1a(text));
+      else
+        printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content\": \"%s\"}]", role, text);
     }
     printf("}\n");
   }
