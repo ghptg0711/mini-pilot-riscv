@@ -19,5 +19,14 @@ for l in open('/tmp/raw-x86.jsonl'):
     e=json.loads(l)
     assert e['time_unix_nano']>0 and e['event.name'] and e['user.id'] and e['gen_ai.agent.type']
 print('PASS 输出满足 schema Required 字段')"; pass=$((pass+1))
-echo "结果: $pass/3"
-exit $((3-pass))
+# v0.8: codex 格式归一化（双架构一致 + agent/provider 正确）
+./build/mini-pilot --agent codex tests/fixtures/raw-codex.jsonl | norm > /tmp/codex-x86.jsonl
+qemu-riscv64 ./build/mini-pilot-riscv64 tests/fixtures/raw-codex.jsonl --agent codex | norm > /tmp/codex-rv.jsonl
+if diff -q /tmp/codex-x86.jsonl /tmp/codex-rv.jsonl >/dev/null && \
+   grep -q '"gen_ai.agent.type": "codex"' /tmp/codex-x86.jsonl && \
+   grep -q '"gen_ai.usage.total_tokens": 165' /tmp/codex-x86.jsonl && \
+   grep -q '"event.name": "tool.call"' /tmp/codex-x86.jsonl; then
+  echo "PASS codex 多 agent 格式归一化（双架构+映射正确）"; pass=$((pass+1))
+else echo "FAIL codex 归一化"; fi
+echo "结果: $pass/4"
+exit $((4-pass))

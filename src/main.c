@@ -64,19 +64,60 @@ static const char *map_event_name(const char *type, const char *status) {
   return "other";
 }
 
-// 命令行: mini-pilot <session.jsonl> [--content] [--mask]
+// ---- 多 agent 格式适配层（v0.8）--------------------------------------
+// Pilot 的核心价值：不同 agent 的原生日志字段各异，采集器归一化后输出统一
+// GenAI 事件。这里用"字段别名表"演示同一机制的最小实现。
+typedef struct {
+  char ts[FIELD_MAX], type[64], status[64], model[FIELD_MAX];
+  char session[FIELD_MAX], tool[FIELD_MAX], text[LINE_MAX];
+  double tin, tout;
+} record_t;
+
+// claude-code 格式: ts/type/status/model/session/tool/text/tokens_in/tokens_out
+// codex      格式: timestamp/event_type/model/conversation_id/input_tokens/output_tokens
+//                     event_type: model_request|model_response|tool_use
+static void read_record(const char *line, record_t *r) {
+  memset(r, 0, sizeof(*r));
+  json_get_str(line, "ts",        r->ts,      sizeof(r->ts));
+  json_get_str(line, "timestamp", r->ts,      sizeof(r->ts));      // 别名（codex）
+  json_get_str(line, "type",      r->type,    sizeof(r->type));
+  json_get_str(line, "event_type", r->type,   sizeof(r->type));    // 别名（codex）
+  json_get_str(line, "status",    r->status,  sizeof(r->status));
+  json_get_str(line, "model",     r->model,   sizeof(r->model));
+  json_get_str(line, "session",   r->session, sizeof(r->session));
+  json_get_str(line, "conversation_id", r->session, sizeof(r->session)); // 别名
+  json_get_str(line, "tool",      r->tool,    sizeof(r->tool));
+  json_get_str(line, "text",      r->text,    sizeof(r->text));
+  json_get_str(line, "prompt",    r->text,    sizeof(r->text));    // 别名（codex 请求）
+  json_get_str(line, "reply",     r->text,    sizeof(r->text));    // 别名（codex 响应）
+  json_get_num(line, "tokens_in",   &r->tin);
+  json_get_num(line, "input_tokens", &r->tin);                     // 别名（codex）
+  json_get_num(line, "tokens_out",  &r->tout);
+  json_get_num(line, "output_tokens", &r->tout);                   // 别名（codex）
+  // codex 的事件语义归一
+  if (strcmp(r->type, "model_request") == 0)  strcpy(r->type, "request");
+  if (strcmp(r->type, "model_response") == 0) strcpy(r->type, "response");
+  if (strcmp(r->type, "tool_use") == 0)       strcpy(r->type, "tool");
+}
+
+// 命令行: mini-pilot <session.jsonl> [--agent claude-code|codex] [--content] [--mask]
+//   --agent    源 agent 类型（决定 gen_ai.agent.type / gen_ai.provider.name，
+//              默认 claude-code；codex 走别名表解析其原生日志格式）
 //   --content  输出 Opt-In 内容字段 gen_ai.input.messages（默认不输出，遵循 schema 的 Opt-In 语义）
 //   --mask     配合 --content，将内容替换为 FNV-1a 指纹（脱敏演示）
 int main(int argc, char **argv) {
-  int emit_content = 0, mask = 0;
+  int emit_content = 0, mask = 0, is_codex = 0;
   const char *path = NULL;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--content") == 0) emit_content = 1;
     else if (strcmp(argv[i], "--mask") == 0) mask = 1;
+    else if (strcmp(argv[i], "--agent") == 0 && i + 1 < argc) {
+      is_codex = (strcmp(argv[++i], "codex") == 0);
+    }
     else if (!path) path = argv[i];
   }
   if (!path) {
-    fprintf(stderr, "usage: %s <session.jsonl> [--content] [--mask]\n", argv[0]);
+    fprintf(stderr, "usage: %s <session.jsonl> [--agent claude-code|codex] [--content] [--mask]\n", argv[0]);
     return 1;
   }
   FILE *f = fopen(path, "r");
@@ -87,26 +128,16 @@ int main(int argc, char **argv) {
     line[strcspn(line, "\n")] = '\0';
     if (line[0] == '\0') continue;
 
-    char ts[FIELD_MAX] = "", type[64] = "", status[64] = "", model[FIELD_MAX] = "";
-    char session[FIELD_MAX] = "", tool[FIELD_MAX] = "", text[LINE_MAX] = "";
-    double tin = 0, tout = 0;
-    json_get_str(line, "ts", ts, sizeof(ts));
-    json_get_str(line, "type", type, sizeof(type));
-    json_get_str(line, "status", status, sizeof(status));
-    json_get_str(line, "model", model, sizeof(model));
-    json_get_str(line, "session", session, sizeof(session));
-    json_get_str(line, "tool", tool, sizeof(tool));
-    json_get_str(line, "text", text, sizeof(text));
-    json_get_num(line, "tokens_in", &tin);
-    json_get_num(line, "tokens_out", &tout);
+    record_t r;
+    read_record(line, &r);   // 多 agent 字段别名归一
 
     char eid[64]; gen_event_id(eid, sizeof(eid));
-    const char *ename = map_event_name(type, status);
-    long long nano = iso_to_nano(ts);
+    const char *ename = map_event_name(r.type, r.status);
+    long long nano = iso_to_nano(r.ts);
 
     // ---- 输出 GenAI 事件（Required/Recommended 字段子集）----
     char trace[33] = "", span[17] = "";
-    if (session[0]) derive_trace(session, trace, span);
+    if (r.session[0]) derive_trace(r.session, trace, span);
     long long onano = now_nano();
     printf("{\"time_unix_nano\": %lld, ", nano);
     printf("\"observed_time_unix_nano\": %lld, ", onano);
@@ -115,30 +146,30 @@ int main(int argc, char **argv) {
     printf("\"user.id\": \"local-user\", ");
     if (trace[0]) printf("\"trace_id\": \"%s\", \"span_id\": \"%s\", ", trace, span);
     printf("\"host.name\": \"%s\", ", strcmp(ename, "") == 0 ? "" : "riscv-qemu");
-    printf("\"gen_ai.agent.type\": \"claude-code\", ");
-    printf("\"gen_ai.provider.name\": \"anthropic\"");
-    if (session[0]) printf(", \"gen_ai.session.id\": \"%s\"", session);
-    if (model[0]) {
+    printf("\"gen_ai.agent.type\": \"%s\", ", is_codex ? "codex" : "claude-code");
+    printf("\"gen_ai.provider.name\": \"%s\"", is_codex ? "openai" : "anthropic");
+    if (r.session[0]) printf(", \"gen_ai.session.id\": \"%s\"", r.session);
+    if (r.model[0]) {
       if (strcmp(ename, "llm.request") == 0)
-        printf(", \"gen_ai.request.model\": \"%s\"", model);
+        printf(", \"gen_ai.request.model\": \"%s\"", r.model);
       else
-        printf(", \"gen_ai.response.model\": \"%s\"", model);
+        printf(", \"gen_ai.response.model\": \"%s\"", r.model);
     }
-    if (strcmp(ename, "tool.call") == 0 && tool[0])
-      printf(", \"tool.name\": \"%s\"", tool);
+    if (strcmp(ename, "tool.call") == 0 && r.tool[0])
+      printf(", \"tool.name\": \"%s\"", r.tool);
     if (strcmp(ename, "llm.response") == 0) {
       printf(", \"gen_ai.usage.input_tokens\": %d, \"gen_ai.usage.output_tokens\": %d, \"gen_ai.usage.total_tokens\": %d",
-             (int)tin, (int)tout, (int)(tin + tout));
+             (int)r.tin, (int)r.tout, (int)(r.tin + r.tout));
     }
     // Opt-In 内容字段（--content）：llm.request 的用户输入 / llm.response 的输出文本
-    if (emit_content && text[0] &&
+    if (emit_content && r.text[0] &&
         (strcmp(ename, "llm.request") == 0 || strcmp(ename, "llm.response") == 0)) {
       const char *role = (strcmp(ename, "llm.request") == 0) ? "user" : "assistant";
       if (mask)
         printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content.masked\": \"fnv1a:%016llx\"}]",
-               role, fnv1a(text));
+               role, fnv1a(r.text));
       else
-        printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content\": \"%s\"}]", role, text);
+        printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content\": \"%s\"}]", role, r.text);
     }
     printf("}\n");
   }
