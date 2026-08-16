@@ -1,0 +1,6 @@
+{"ts": "2026-08-17T10:00:01Z", "type": "request", "model": "claude-sonnet-4", "text": "help me sort an array", "session": "s-a1b2"}
+{"ts": "2026-08-17T10:00:04Z", "type": "response", "model": "claude-sonnet-4", "tokens_in": 210, "tokens_out": 96, "text": "here is a sorting example", "session": "s-a1b2"}
+{"ts": "2026-08-17T10:00:06Z", "type": "tool", "tool": "Write", "status": "call", "session": "s-a1b2"}
+{"ts": "2026-08-17T10:00:07Z", "type": "tool", "tool": "Write", "status": "result", "ok": true, "session": "s-a1b2"}
+{"ts": "2026-08-17T11:30:00Z", "type": "request", "model": "claude-sonnet-4", "text": "explain CDC", "session": "s-c3d4"}
+{"ts": "2026-08-17T11:30:09Z", "type": "response", "model": "claude-sonnet-4", "tokens_in": 350, "tokens_out": 812, "text": "clock domain crossing is...", "session": "s-c3d4"}
