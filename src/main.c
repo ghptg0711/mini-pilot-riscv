@@ -39,7 +39,6 @@ static const char *map_event_name(const char *type, const char *status) {
 }
 
 int main(int argc, char **argv) {
-  int mask = (argc > 2 && strcmp(argv[2], "--mask") == 0);
   if (argc < 2) { fprintf(stderr, "usage: %s <session.jsonl> [--mask]\n", argv[0]); return 1; }
   FILE *f = fopen(argv[1], "r");
   if (!f) { perror("fopen"); return 1; }

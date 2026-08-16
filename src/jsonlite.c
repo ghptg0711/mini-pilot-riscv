@@ -2,28 +2,24 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdio.h>
 
 // 定位 "key" : value 的 value 起始指针；未找到返回 NULL。
+// 遍历所有 "key" 出现位置，取第一个后跟冒号的（避免匹配到值位置，
+// 如 {"type": "tool", "tool": "Write"} 中 "tool" 首次出现在值处）。
 static const char *find_value(const char *line, const char *key) {
-  size_t klen = strlen(key);
+  char pat[80];
+  if (snprintf(pat, sizeof(pat), "\"%s\"", key) >= (int)sizeof(pat)) return NULL;
   const char *p = line;
-  while ((p = strstr(p, key)) != NULL) {
-    // 前后必须是引号边界，且这是 key 位置（形如 "key"）
-    int prev_ok = (p == line) || (*(p - 1) == '"' || *(p - 1) == '{' || *(p - 1) == ',' || isspace((unsigned char)*(p - 1)));
-    if (*p != '"') { p++; continue; }
-    if (p > line && *(p - 1) != '"' && *(p - 1) != '{' && *(p - 1) != ',' && !isspace((unsigned char)*(p - 1))) { p++; continue; }
-    const char *q = p + 1;              // 跳过开引号
-    q += klen;
-    if (*q != '"') { p = q; continue; } // key 不完全匹配
-    (void)prev_ok;
-    q++;                                 // 跳过闭引号
+  while ((p = strstr(p, pat)) != NULL) {
+    const char *q = p + strlen(pat);
     while (*q && isspace((unsigned char)*q)) q++;
     if (*q == ':') {
       q++;
       while (*q && isspace((unsigned char)*q)) q++;
       return q;
     }
-    p = q;
+    p += strlen(pat);
   }
   return NULL;
 }
