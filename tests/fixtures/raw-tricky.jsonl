@@ -1,0 +1,2 @@
+{"ts": "2026-08-17T13:00:00Z", "type": "request", "model": "claude-sonnet-4", "text": "he said \"hi\" and back\\slash tab\there", "session": "s-tricky"}
+{"ts": "2026-08-17T13:00:02Z", "type": "response", "model": "claude-sonnet-4", "tokens_in": 50, "tokens_out": 20, "text": "quote \" out", "session": "s-tricky"}

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include "jsonlite.h"
 
 #define LINE_MAX 8192
@@ -54,6 +55,26 @@ static void derive_trace(const char *session, char *trace, char *span) {
   unsigned long long a = fnv1a(session), b = fnv1a(session + 1);
   snprintf(trace, 33, "%016llx%016llx", a, b);
   snprintf(span, 17, "%016llx", fnv1a(session) ^ (seq * 0x9e3779b97f4a7c15ULL));
+}
+
+// 输出端 JSON 字符串转义（\", \\, 控制字符 -> \uXXXX）。
+// v0.9 修复：源文本含引号/反斜杠/换行时，此前会拼出非法 JSON。
+static void print_json_str(const char *s) {
+  putchar('"');
+  for (; *s; s++) {
+    unsigned char c = (unsigned char)*s;
+    switch (c) {
+      case '"':  fputs("\\\"", stdout); break;
+      case '\\': fputs("\\\\", stdout); break;
+      case '\n': fputs("\\n", stdout); break;
+      case '\r': fputs("\\r", stdout); break;
+      case '\t': fputs("\\t", stdout); break;
+      default:
+        if (c < 0x20) printf("\\u%04x", c);
+        else putchar(c);
+    }
+  }
+  putchar('"');
 }
 
 static const char *map_event_name(const char *type, const char *status) {
@@ -124,7 +145,17 @@ int main(int argc, char **argv) {
   if (!f) { perror("fopen"); return 1; }
 
   char line[LINE_MAX];
+  char hostname[64] = "unknown";
+  gethostname(hostname, sizeof(hostname) - 1);   // 真实主机名（v0.9 去除硬编码）
   while (fgets(line, sizeof(line), f)) {
+    // v0.9 修复：行长度超过缓冲时 fgets 会截断——检测并丢弃该坏行
+    size_t len = strlen(line);
+    if (len == sizeof(line) - 1 && line[len - 1] != '\n') {
+      fprintf(stderr, "warn: line %llu exceeds %d bytes, skipped\n",
+              (unsigned long long)(seq + 1), (int)sizeof(line));
+      int ch; while ((ch = fgetc(f)) != '\n' && ch != EOF) {}
+      continue;
+    }
     line[strcspn(line, "\n")] = '\0';
     if (line[0] == '\0') continue;
 
@@ -145,18 +176,18 @@ int main(int argc, char **argv) {
     printf("\"event.name\": \"%s\", ", ename);
     printf("\"user.id\": \"local-user\", ");
     if (trace[0]) printf("\"trace_id\": \"%s\", \"span_id\": \"%s\", ", trace, span);
-    printf("\"host.name\": \"%s\", ", strcmp(ename, "") == 0 ? "" : "riscv-qemu");
+    printf("\"host.name\": \"%s\", ", hostname);
     printf("\"gen_ai.agent.type\": \"%s\", ", is_codex ? "codex" : "claude-code");
     printf("\"gen_ai.provider.name\": \"%s\"", is_codex ? "openai" : "anthropic");
-    if (r.session[0]) printf(", \"gen_ai.session.id\": \"%s\"", r.session);
+    if (r.session[0]) { printf(", \"gen_ai.session.id\": "); print_json_str(r.session); }
     if (r.model[0]) {
       if (strcmp(ename, "llm.request") == 0)
-        printf(", \"gen_ai.request.model\": \"%s\"", r.model);
+        { printf(", \"gen_ai.request.model\": "); print_json_str(r.model); }
       else
-        printf(", \"gen_ai.response.model\": \"%s\"", r.model);
+        { printf(", \"gen_ai.response.model\": "); print_json_str(r.model); }
     }
     if (strcmp(ename, "tool.call") == 0 && r.tool[0])
-      printf(", \"tool.name\": \"%s\"", r.tool);
+      { printf(", \"tool.name\": "); print_json_str(r.tool); }
     if (strcmp(ename, "llm.response") == 0) {
       printf(", \"gen_ai.usage.input_tokens\": %d, \"gen_ai.usage.output_tokens\": %d, \"gen_ai.usage.total_tokens\": %d",
              (int)r.tin, (int)r.tout, (int)(r.tin + r.tout));
@@ -168,8 +199,11 @@ int main(int argc, char **argv) {
       if (mask)
         printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content.masked\": \"fnv1a:%016llx\"}]",
                role, fnv1a(r.text));
-      else
-        printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content\": \"%s\"}]", role, r.text);
+      else {
+        printf(", \"gen_ai.input.messages\": [{\"role\": \"%s\", \"content\": ", role);
+        print_json_str(r.text);
+        printf("}]");
+      }
     }
     printf("}\n");
   }
