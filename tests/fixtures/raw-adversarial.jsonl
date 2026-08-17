@@ -1,0 +1,7 @@
+{"ts": "2026-08-17T10:00:00Z", "type": "request", "text": "中文内容测试 UTF-8 你好", "session": "s-utf8"}
+{"ts": "2026-08-17T10:00:01Z", "type": "response", "tokens_in": -5, "tokens_out": 12, "session": "s-neg"}
+{"type": "request"}
+{"ts": "bad-format", "type": "request", "session": "s-badts"}
+{"ts": "2026-08-17T10:00:03Z", "type": "request", "tool": null, "session": ""}
+{"ts": "2026-08-17T10:00:04Z", "type": "weird"}
+{"ts": "2026-08-17T10:00:05Z", "type": "request", "model": "m\"del", "session": "s-quote-model"}

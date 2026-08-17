@@ -93,7 +93,16 @@ void flusher_emit(const record_t *r, const flusher_opts_t *opts) {
   char eid[64];
   gen_event_id(eid, sizeof(eid));
   const char *ename = map_event_name(r->type, r->status);
+  long long onano = now_nano();
+  /* Semantic event time is Required by the schema; when the source
+   * timestamp is unparsable, fall back to the collection time rather
+   * than emitting the invalid value 0 (best-effort collector). */
   long long nano = iso_to_nano(r->ts);
+  if (nano <= 0) nano = onano;
+
+  /* Token counts are semantically non-negative; clamp garbage input. */
+  double tin = r->tin > 0 ? r->tin : 0;
+  double tout = r->tout > 0 ? r->tout : 0;
 
   char trace[33] = "", span[17] = "";
   if (r->session[0]) derive_trace(r->session, trace, span);
@@ -102,7 +111,7 @@ void flusher_emit(const record_t *r, const flusher_opts_t *opts) {
 
   /* Required / Recommended field subset per docs/output-event-schema.md */
   printf("{\"time_unix_nano\": %lld, ", nano);
-  printf("\"observed_time_unix_nano\": %lld, ", now_nano());
+  printf("\"observed_time_unix_nano\": %lld, ", onano);
   printf("\"event.id\": \"%s\", ", eid);
   printf("\"event.name\": \"%s\", ", ename);
   printf("\"user.id\": \"local-user\", ");
@@ -120,7 +129,7 @@ void flusher_emit(const record_t *r, const flusher_opts_t *opts) {
     { printf(", \"tool.name\": "); print_json_str(r->tool); }
   if (strcmp(ename, "llm.response") == 0) {
     printf(", \"gen_ai.usage.input_tokens\": %d, \"gen_ai.usage.output_tokens\": %d, \"gen_ai.usage.total_tokens\": %d",
-           (int)r->tin, (int)r->tout, (int)(r->tin + r->tout));
+           (int)tin, (int)tout, (int)(tin + tout));
   }
   /* Opt-In content (see docs/output-event-schema.md "Opt-In" level). */
   if (opts->emit_content && r->text[0] &&

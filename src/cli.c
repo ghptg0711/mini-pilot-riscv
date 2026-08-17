@@ -51,9 +51,12 @@ int cli_parse(int argc, char **argv, cli_options_t *opt, int *exit_code) {
       opt->path = argv[i];
     }
   }
+  /* --mask without --content is a usage trap: masking only applies to
+   * opt-in content, so imply the content emission instead of no-op. */
+  if (opt->mask) opt->emit_content = 1;
   if (!opt->path) {
     fprintf(stderr,
-            "usage: %s <session.jsonl> [--agent claude-code|codex] [--content] [--mask]\n"
+            "usage: %s <session.jsonl|-> [--agent claude-code|codex] [--content] [--mask]\n"
             "       %s status\n",
             argv[0], argv[0]);
     *exit_code = 1;

@@ -14,10 +14,15 @@ int main(int argc, char **argv) {
   int exit_code = 0;
   if (cli_parse(argc, argv, &opt, &exit_code)) return exit_code;
 
-  FILE *f = fopen(opt.path, "r");
-  if (!f) {
-    perror("fopen");
-    return 1;
+  /* "-" reads from stdin so the collector fits into unix pipelines
+   * (cat session.jsonl | mini-pilot -). */
+  FILE *f = stdin;
+  if (strcmp(opt.path, "-") != 0) {
+    f = fopen(opt.path, "r");
+    if (!f) {
+      perror("fopen");
+      return 1;
+    }
   }
 
   flusher_opts_t fopt = {
@@ -43,6 +48,6 @@ int main(int argc, char **argv) {
     input_read_record(line, &r);
     flusher_emit(&r, &fopt);
   }
-  fclose(f);
+  if (f != stdin) fclose(f);
   return 0;
 }

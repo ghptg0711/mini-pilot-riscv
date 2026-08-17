@@ -15,3 +15,9 @@ jobs:
         run: make test
       - name: 冒烟（riscv64 二进制运行）
         run: make run-riscv
+      - name: 内存安全（AddressSanitizer + UBSan 跑全部 fixture）
+        run: |
+          gcc -Wall -Wextra -g -fsanitize=address,undefined \
+            -o /tmp/mini-asan src/main.c src/cli.c src/input.c src/flusher.c src/mask.c src/jsonlite.c -Isrc
+          for f in tests/fixtures/*.jsonl; do /tmp/mini-asan "$f" >/dev/null; done
+          /tmp/mini-asan tests/fixtures/raw-claude.jsonl --content --mask >/dev/null

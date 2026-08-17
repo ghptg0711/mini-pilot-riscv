@@ -43,7 +43,22 @@
 
 ## 5. 后续迭代方向（若申请立项）
 
-1. v0.6：`--mask` 脱敏实现（对应 docs/masking.md，text 字段哈希化）
-2. v0.7：`observed_time_unix_nano` 与 trace/span 生成
-3. v0.8：Codex 格式 fixture（多 agent 归一化）
-4. 真实仓库侧：先在 x86 容器里复现完整 `npm ci && npm test`，再引入 riscv64 node 运行时验证
+1. v0.6：`--mask` 脱敏实现（对应 docs/masking.md，text 字段哈希化）✅ 已完成
+2. v0.7：`observed_time_unix_nano` 与 trace/span 生成 ✅ 已完成
+3. v0.8：Codex 格式 fixture（多 agent 归一化）✅ 已完成
+
+## 6. 工程风格对齐（v0.12，2026-08-17）
+
+以上游仓库为范本做了一次风格靠拢：
+
+| 上游惯例 | 本仓库对齐 |
+|---|---|
+| conventional commits（`fix(dsh): ... (#PR)`） | v0.12 起采用 `refactor(src):`/`docs(readme):`/`chore:` 三段式 |
+| src/ 组件分层（inputs/flushers/mask/core/cli） | 拆分为 input/flusher/mask/cli 四组件+main 编排，每个模块头注释标注上游对应物 |
+| README.md（英）+ README.zh-CN.md（中） | 同名结构互换对齐，双向互链 |
+| AGENTS.md（AI 协作规范） | 新增，含 code map（每组件标注上游类比）、约定、"不得静默修复"的教学级取舍清单 |
+| 代码注释英文 | 全量切换为英文注释 |
+| CI：name: CI + 步骤化（typecheck/test/build） | 已有 ci.yml 覆盖 build/test/smoke（C 项目无 typecheck 等价物） |
+
+对求职的启示：给一个仓库提 PR 前，先读它的提交历史/目录组织/注释语言并模仿——
+这比代码本身更快获得 maintainer 好感（PLCT 的 issue 规范描述要求同理）。

@@ -28,5 +28,25 @@ if diff -q /tmp/codex-x86.jsonl /tmp/codex-rv.jsonl >/dev/null && \
    grep -q '"event.name": "tool.call"' /tmp/codex-x86.jsonl; then
   echo "PASS codex 多 agent 格式归一化（双架构+映射正确）"; pass=$((pass+1))
 else echo "FAIL codex 归一化"; fi
-echo "结果: $pass/4"
-exit $((4-pass))
+# v0.13: 对抗性输入（UTF-8/负数token/坏时间戳/掩码隐含/stdin 管道）
+ADV=tests/fixtures/raw-adversarial.jsonl
+if ./build/mini-pilot "$ADV" --mask > /tmp/adv-out.jsonl 2>/dev/null && \
+   cat "$ADV" | ./build/mini-pilot - > /tmp/adv-stdin.jsonl 2>/dev/null && \
+   python3 - <<'PYEOF'
+import json
+evs = [json.loads(l) for l in open('/tmp/adv-out.jsonl')]
+assert len(evs) == 7, f"expect 7 events, got {len(evs)}"
+utf8 = evs[0]['gen_ai.input.messages'][0]['content.masked']  # --mask implies content
+assert utf8.startswith('fnv1a:')
+assert evs[1]['gen_ai.usage.input_tokens'] == 0, "negative tokens must clamp to 0"
+assert all(e['time_unix_nano'] > 0 for e in evs), "no zero timestamps (ts fallback)"
+assert evs[5]['event.name'] == 'other'  # weird type (line 6)
+assert evs[6]['gen_ai.request.model'] == 'm"del'  # quoted model roundtrip
+stdin_evs = [json.loads(l) for l in open('/tmp/adv-stdin.jsonl')]
+assert len(stdin_evs) == 7, "stdin pipeline (-) must work"
+print('ok')
+PYEOF
+then echo "PASS 对抗性输入（UTF-8/负数钳制/时间戳兜底/掩码隐含/管道）"; pass=$((pass+1))
+else echo "FAIL 对抗性输入"; fi
+echo "结果: $pass/5"
+exit $((5-pass))
