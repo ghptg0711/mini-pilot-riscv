@@ -6,7 +6,7 @@ CFLAGS    = -Wall -Wextra -O2 -static
 SRC       = src/main.c src/cli.c src/input.c src/flusher.c src/mask.c src/jsonlite.c
 QEMU      = qemu-riscv64   # 来自 /home/gh/env/qemu（PATH 中）
 
-.PHONY: all x86 riscv run-x86 run-riscv test clean
+.PHONY: all x86 riscv run-x86 run-riscv test bench clean
 
 all: x86 riscv
 
@@ -27,6 +27,9 @@ run-riscv: riscv
 
 test: all
 	./tests/run_test.sh
+
+bench: all
+	bash scripts/bench.sh
 
 clean:
 	rm -rf build

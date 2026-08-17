@@ -19,7 +19,17 @@ English | [简体中文](README.zh-CN.md)（当前）
 | 三段式测试 | 期望比对 / 双架构逐字节一致 / schema 断言 | v0.4 |
 | 内容脱敏 | `--content` 输出 Opt-In 内容，`--mask` 以 FNV-1a 指纹替代明文 | v0.6 |
 | 采集时间与追踪 | `observed_time_unix_nano` + W3C `trace_id`/`span_id`（同会话同 trace） | v0.7 |
-| 多 agent 归一化 | `--agent codex` 以字段别名表解析 Codex 原生日志 | v0.8 |
+| 多 agent 归一化 | `--agent codex\|cursor\|qoder` 字段别名表（覆盖议题点名的四类 agent） | v0.14 |
+| 性能基准 | `make bench`：x86 与 qemu-riscv64 吞吐对比 | v0.15 |
+
+## 性能（make bench，5 万条混合 agent 事件）
+
+| 运行环境 | 吞吐 |
+|---|---|
+| x86 本机 | ~370,000 事件/秒 |
+| qemu-riscv64（user 模式，TCG 翻译） | ~22,600 事件/秒 |
+
+数字来自开发机；重点是给 riscv64 路径提供**可复现的度量工具**，而非绝对值。
 | 运维命令与架构感知 | `mini-pilot status`（版本/构建架构/运行架构）、事件含 `host.arch`、`scripts/smoke.sh` 端到端冒烟 | v0.11 |
 
 > v0.9-v0.11 的转义安全、CI、status/冒烟链路分别对应目标项目"产出要求"中的

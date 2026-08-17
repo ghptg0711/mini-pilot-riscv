@@ -19,7 +19,8 @@ cross-compiles for **x86 and riscv64**, and runs under `qemu-riscv64` user mode.
 | Test suite | expected diff / cross-arch byte-identical / schema assertions | v0.4 |
 | Content masking | `--content` emits Opt-In fields; `--mask` replaces text with FNV-1a digest | v0.6 |
 | Trace context | `observed_time_unix_nano` + W3C `trace_id`/`span_id` | v0.7 |
-| Multi-agent | `--agent codex` field-alias normalization | v0.8 |
+| Multi-agent | `--agent codex\|cursor\|qoder` field-alias normalization (four agents from the issue description) | v0.14 |
+| Benchmark | `make bench`: throughput x86 vs qemu-riscv64 | v0.15 |
 | Escaping safety | output-side JSON escaping + escape-aware input parsing | v0.9 |
 | CI | GitHub Actions: dual-arch build + tests + riscv64 smoke | v0.10 |
 | Ops surface | `mini-pilot status` (version/build arch/run arch), `host.arch` in events, end-to-end `scripts/smoke.sh` | v0.11 |
@@ -30,9 +31,21 @@ cross-compiles for **x86 and riscv64**, and runs under `qemu-riscv64` user mode.
 make all                 # build x86 + riscv64
 ./build/mini-pilot status        # ops-style status command
 ./build/mini-pilot --agent codex tests/fixtures/raw-codex.jsonl
-make test                # 4 assertions
+./build/mini-pilot --agent qoder --provider qwen tests/fixtures/raw-qoder.jsonl
+make test                # 6 assertions
+make bench               # throughput: x86 vs qemu-riscv64
 bash scripts/smoke.sh    # install-check -> build -> start -> collect -> verify
 ```
+
+## Performance (make bench, 50k mixed-agent events)
+
+| Runner | Throughput |
+|---|---|
+| x86 native | ~370,000 events/s |
+| qemu-riscv64 (user mode, TCG) | ~22,600 events/s |
+
+Numbers from the dev machine; the point is a **reproducible measurement
+harness** for the riscv64 path, not absolute values.
 
 ## Design notes
 
