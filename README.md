@@ -1,5 +1,7 @@
 # mini-pilot-riscv (English)
 
+
+> 简体中文文档：[README.zh-CN.md](README.zh-CN.md)
 [![ci](https://github.com/ghptg0711/mini-pilot-riscv/actions/workflows/ci.yml/badge.svg)](https://github.com/ghptg0711/mini-pilot-riscv/actions/workflows/ci.yml)
 
 A **mini telemetry collector for AI coding agents** written in C — the capability

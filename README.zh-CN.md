@@ -2,10 +2,11 @@
 
 [![ci](https://github.com/ghptg0711/mini-pilot-riscv/actions/workflows/ci.yml/badge.svg)](https://github.com/ghptg0711/mini-pilot-riscv/actions/workflows/ci.yml)
 
+English | [简体中文](README.zh-CN.md)（当前）
+
 > 用 C 实现的**迷你 AI 编程智能体遥测采集器**——OSPP 2026 点亮计划项目
 > [266eb0010《LoongSuite Pilot 支持 RISC-V 架构》](https://summer.ospp.ac.cn/org/prodetail/266eb0010?lang=zh&list=pro)
-> 的申请能力验证 demo（English: [README.en.md](README.en.md)）。
-> 它把 agent 会话日志规范化为 [loongsuite-pilot](https://github.com/alibaba/loongsuite-pilot)
+> 的申请能力验证 demo。它把 agent 会话日志规范化为 [loongsuite-pilot](https://github.com/alibaba/loongsuite-pilot)
 > 的 GenAI 事件 schema，支持 **x86 与 riscv64 交叉编译**，并在 `qemu-riscv64` 用户模式直接运行验证。
 > **CI 在每次 push 时自动完成双架构构建、跨架构一致性测试与 riscv64 冒烟运行。**
 
