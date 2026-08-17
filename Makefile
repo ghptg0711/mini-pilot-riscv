@@ -3,7 +3,7 @@
 CC_x86    = gcc
 CC_riscv  = riscv64-linux-gnu-gcc
 CFLAGS    = -Wall -Wextra -O2 -static
-SRC       = src/main.c src/jsonlite.c
+SRC       = src/main.c src/cli.c src/input.c src/flusher.c src/mask.c src/jsonlite.c
 QEMU      = qemu-riscv64   # 来自 /home/gh/env/qemu（PATH 中）
 
 .PHONY: all x86 riscv run-x86 run-riscv test clean
