@@ -48,5 +48,24 @@ print('ok')
 PYEOF
 then echo "PASS 对抗性输入（UTF-8/负数钳制/时间戳兜底/掩码隐含/管道）"; pass=$((pass+1))
 else echo "FAIL 对抗性输入"; fi
-echo "结果: $pass/5"
-exit $((5-pass))
+# v0.14: cursor + qoder agent matrix
+if ./build/mini-pilot --agent cursor tests/fixtures/raw-cursor.jsonl > /tmp/cur.jsonl 2>/dev/null && \
+   ./build/mini-pilot --agent qoder  tests/fixtures/raw-qoder.jsonl  > /tmp/qod.jsonl 2>/dev/null && \
+   qemu-riscv64 ./build/mini-pilot-riscv64 --agent cursor tests/fixtures/raw-cursor.jsonl 2>/dev/null | norm > /tmp/cur-rv.jsonl && \
+   ./build/mini-pilot --agent cursor tests/fixtures/raw-cursor.jsonl 2>/dev/null | norm > /tmp/cur-x86.jsonl && \
+   python3 - <<'PYEOF'
+import json
+cur = [json.loads(l) for l in open('/tmp/cur.jsonl')]
+qod = [json.loads(l) for l in open('/tmp/qod.jsonl')]
+assert cur[0]['gen_ai.agent.type'] == 'cursor' and cur[0]['gen_ai.session.id'] == 'cur-77a'
+assert cur[1]['gen_ai.usage.total_tokens'] == 228 and cur[2]['event.name'] == 'tool.call'
+assert qod[0]['gen_ai.agent.type'] == 'qoder' and qod[0]['gen_ai.provider.name'] == 'qwen'
+assert qod[1]['gen_ai.usage.total_tokens'] == 156
+print('ok')
+PYEOF
+then
+  diff -q /tmp/cur-x86.jsonl /tmp/cur-rv.jsonl >/dev/null && \
+  echo "PASS cursor+qoder agent 矩阵（语义/字段/provider 默认/跨架构）"; pass=$((pass+1))
+else echo "FAIL agent 矩阵"; fi
+echo "结果: $pass/6"
+exit $((6-pass))

@@ -1,0 +1,3 @@
+{"ts": "2026-08-17T15:00:00Z", "event": "request", "model": "qwen3-coder", "content": "生成一个 Makefile", "conv_id": "q-2026"}
+{"ts": "2026-08-17T15:00:04Z", "event": "response", "model": "qwen3-coder", "in_tok": 66, "out_tok": 90, "content": "all: build", "conv_id": "q-2026"}
+{"ts": "2026-08-17T15:00:05Z", "event": "tool", "conv_id": "q-2026"}

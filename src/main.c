@@ -26,7 +26,8 @@ int main(int argc, char **argv) {
   }
 
   flusher_opts_t fopt = {
-      .is_codex = opt.is_codex,
+      .agent_type = opt.agent_type,
+      .provider = opt.provider,
       .emit_content = opt.emit_content,
       .mask = opt.mask,
   };

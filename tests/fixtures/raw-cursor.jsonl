@@ -1,0 +1,3 @@
+{"time": "2026-08-17T14:00:00Z", "kind": "ai.request", "model": "claude-sonnet-4", "prompt": "write a rust function", "conversationId": "cur-77a"}
+{"time": "2026-08-17T14:00:06Z", "kind": "ai.response", "model": "claude-sonnet-4", "tokensIn": 88, "tokensOut": 140, "reply": "fn main() { }", "conversationId": "cur-77a"}
+{"time": "2026-08-17T14:00:08Z", "kind": "ai.tool", "conversationId": "cur-77a"}

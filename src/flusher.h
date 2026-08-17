@@ -8,9 +8,10 @@
 #include "input.h"
 
 typedef struct {
-  int is_codex;      /* gen_ai.agent.type / provider switch */
-  int emit_content;  /* opt-in gen_ai.input.messages */
-  int mask;          /* mask content with FNV-1a digest */
+  const char *agent_type;  /* gen_ai.agent.type, e.g. claude-code/codex/cursor/qoder */
+  const char *provider;    /* gen_ai.provider.name (see upstream Provider Names) */
+  int emit_content;        /* opt-in gen_ai.input.messages */
+  int mask;                /* mask content with FNV-1a digest */
 } flusher_opts_t;
 
 void flusher_emit(const record_t *r, const flusher_opts_t *opts);

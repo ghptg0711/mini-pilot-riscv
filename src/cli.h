@@ -6,7 +6,8 @@
 
 typedef struct {
   const char *path;
-  int is_codex;
+  const char *agent_type;  /* claude-code (default) | codex | cursor | qoder */
+  const char *provider;    /* overrides the per-agent provider default */
   int emit_content;
   int mask;
 } cli_options_t;

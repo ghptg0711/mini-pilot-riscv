@@ -30,7 +30,7 @@ int cli_status_cmd(void) {
   printf("node       : %s\n",
          getenv("COLLECTOR_NODE") ? getenv("COLLECTOR_NODE") : "local");
   printf("capabilities:\n");
-  printf("  - agents        : claude-code, codex\n");
+  printf("  - agents        : claude-code, codex, cursor, qoder\n");
   printf("  - outputs       : jsonl(stdout)\n");
   printf("  - content/mask  : opt-in\n");
   return 0;
@@ -38,6 +38,8 @@ int cli_status_cmd(void) {
 
 int cli_parse(int argc, char **argv, cli_options_t *opt, int *exit_code) {
   memset(opt, 0, sizeof(*opt));
+  opt->agent_type = "claude-code";
+  const char *provider_override = NULL;
   if (argc >= 2 && strcmp(argv[1], "status") == 0) {
     *exit_code = cli_status_cmd();
     return 1;
@@ -46,17 +48,29 @@ int cli_parse(int argc, char **argv, cli_options_t *opt, int *exit_code) {
     if (strcmp(argv[i], "--content") == 0) opt->emit_content = 1;
     else if (strcmp(argv[i], "--mask") == 0) opt->mask = 1;
     else if (strcmp(argv[i], "--agent") == 0 && i + 1 < argc) {
-      opt->is_codex = (strcmp(argv[++i], "codex") == 0);
+      opt->agent_type = argv[++i];
+    } else if (strcmp(argv[i], "--provider") == 0 && i + 1 < argc) {
+      provider_override = argv[++i];
     } else if (!opt->path) {
       opt->path = argv[i];
     }
   }
+  /* per-agent provider defaults; --provider overrides (upstream schema
+   * keeps provider as a first-class field, see Provider Names) */
+  if (!provider_override) {
+    if (strcmp(opt->agent_type, "codex") == 0)        provider_override = "openai";
+    else if (strcmp(opt->agent_type, "cursor") == 0)  provider_override = "openai";
+    else if (strcmp(opt->agent_type, "qoder") == 0)   provider_override = "qwen";
+    else                                              provider_override = "anthropic";
+  }
+  opt->provider = provider_override;
   /* --mask without --content is a usage trap: masking only applies to
    * opt-in content, so imply the content emission instead of no-op. */
   if (opt->mask) opt->emit_content = 1;
   if (!opt->path) {
     fprintf(stderr,
-            "usage: %s <session.jsonl|-> [--agent claude-code|codex] [--content] [--mask]\n"
+            "usage: %s <session.jsonl|-> [--agent claude-code|codex|cursor|qoder]\n"
+            "          [--provider <name>] [--content] [--mask]\n"
             "       %s status\n",
             argv[0], argv[0]);
     *exit_code = 1;

@@ -118,8 +118,8 @@ void flusher_emit(const record_t *r, const flusher_opts_t *opts) {
   if (trace[0]) printf("\"trace_id\": \"%s\", \"span_id\": \"%s\", ", trace, span);
   printf("\"host.name\": \"%s\", ", hostname);
   printf("\"host.arch\": \"%s\", ", build_arch());
-  printf("\"gen_ai.agent.type\": \"%s\", ", opts->is_codex ? "codex" : "claude-code");
-  printf("\"gen_ai.provider.name\": \"%s\"", opts->is_codex ? "openai" : "anthropic");
+  printf("\"gen_ai.agent.type\": \"%s\", ", opts->agent_type);
+  printf("\"gen_ai.provider.name\": \"%s\"", opts->provider);
   if (r->session[0]) { printf(", \"gen_ai.session.id\": "); print_json_str(r->session); }
   if (r->model[0]) {
     if (strcmp(ename, "llm.request") == 0) { printf(", \"gen_ai.request.model\": "); print_json_str(r->model); }
