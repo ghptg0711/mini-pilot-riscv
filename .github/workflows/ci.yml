@@ -1,0 +1,17 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装交叉工具链与 QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user python3
+      - name: 构建（x86 + riscv64）
+        run: make all
+      - name: 测试（含 qemu-riscv64 跨架构一致性）
+        run: make test
+      - name: 冒烟（riscv64 二进制运行）
+        run: make run-riscv
