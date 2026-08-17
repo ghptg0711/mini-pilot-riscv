@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/.."
 FIX=tests/fixtures/raw-claude.jsonl
 EXP=tests/expected/normalized.jsonl
-norm(){ sed -E 's/"event.id": "[^"]*"/"event.id": "<ID>"/; s/"observed_time_unix_nano": [0-9]+/"observed_time_unix_nano": <T>"/; s/"host.name": "[^"]*"/"host.name": "<HOST>"/'; }
+norm(){ sed -E 's/"event.id": "[^"]*"/"event.id": "<ID>"/; s/"observed_time_unix_nano": [0-9]+/"observed_time_unix_nano": <T>"/; s/"host.name": "[^"]*"/"host.name": "<HOST>"/; s/"host.arch": "[^"]*"/"host.arch": "<ARCH>"/'; }
 
 ./build/mini-pilot            "$FIX" | norm > /tmp/out-x86.jsonl
 ./build/mini-pilot            "$FIX"         > /tmp/raw-x86.jsonl

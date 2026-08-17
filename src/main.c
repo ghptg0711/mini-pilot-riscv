@@ -11,6 +11,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/utsname.h>
 #include "jsonlite.h"
 
 #define LINE_MAX 8192
@@ -122,11 +123,44 @@ static void read_record(const char *line, record_t *r) {
 }
 
 // 命令行: mini-pilot <session.jsonl> [--agent claude-code|codex] [--content] [--mask]
+//          mini-pilot status
+//   status     最小运维命令面：输出版本/构建架构/运行架构/环境探测，
+//              对应目标项目产出要求 1 中 "loongsuite-pilot status/info 可用" 的形态演示
 //   --agent    源 agent 类型（决定 gen_ai.agent.type / gen_ai.provider.name，
 //              默认 claude-code；codex 走别名表解析其原生日志格式）
 //   --content  输出 Opt-In 内容字段 gen_ai.input.messages（默认不输出，遵循 schema 的 Opt-In 语义）
 //   --mask     配合 --content，将内容替换为 FNV-1a 指纹（脱敏演示）
+#define MINI_PILOT_VERSION "0.11.0"
+
+// 编译期架构识别——对应目标项目 installer 的 uname -m / process.arch 架构探测
+static const char *build_arch(void) {
+#if defined(__riscv) && __riscv_xlen == 64
+  return "riscv64";
+#elif defined(__x86_64__)
+  return "x86_64";
+#elif defined(__aarch64__)
+  return "aarch64";
+#else
+  return "unknown";
+#endif
+}
+
+static int status_cmd(void) {
+  struct utsname u;
+  printf("mini-pilot %s\n", MINI_PILOT_VERSION);
+  printf("build arch : %s\n", build_arch());
+  if (uname(&u) == 0)
+    printf("run  arch  : %s (%s %s)\n", u.machine, u.sysname, u.release);
+  printf("node       : %s\n", getenv("COLLECTOR_NODE") ? getenv("COLLECTOR_NODE") : "local");
+  printf("capabilities:\n");
+  printf("  - agents        : claude-code, codex\n");
+  printf("  - outputs       : jsonl(stdout)\n");
+  printf("  - content/mask  : opt-in\n");
+  return 0;
+}
+
 int main(int argc, char **argv) {
+  if (argc >= 2 && strcmp(argv[1], "status") == 0) return status_cmd();
   int emit_content = 0, mask = 0, is_codex = 0;
   const char *path = NULL;
   for (int i = 1; i < argc; i++) {
@@ -177,6 +211,7 @@ int main(int argc, char **argv) {
     printf("\"user.id\": \"local-user\", ");
     if (trace[0]) printf("\"trace_id\": \"%s\", \"span_id\": \"%s\", ", trace, span);
     printf("\"host.name\": \"%s\", ", hostname);
+    printf("\"host.arch\": \"%s\", ", build_arch());
     printf("\"gen_ai.agent.type\": \"%s\", ", is_codex ? "codex" : "claude-code");
     printf("\"gen_ai.provider.name\": \"%s\"", is_codex ? "openai" : "anthropic");
     if (r.session[0]) { printf(", \"gen_ai.session.id\": "); print_json_str(r.session); }

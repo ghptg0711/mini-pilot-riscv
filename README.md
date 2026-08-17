@@ -3,7 +3,8 @@
 [![ci](https://github.com/ghptg0711/mini-pilot-riscv/actions/workflows/ci.yml/badge.svg)](https://github.com/ghptg0711/mini-pilot-riscv/actions/workflows/ci.yml)
 
 > 用 C 实现的**迷你 AI 编程智能体遥测采集器**——OSPP 2026 点亮计划项目
-> [266eb0010《LoongSuite Pilot 支持 RISC-V 架构》](https://summer.ospp.ac.cn) 的申请能力验证 demo。
+> [266eb0010《LoongSuite Pilot 支持 RISC-V 架构》](https://summer.ospp.ac.cn/org/prodetail/266eb0010?lang=zh&list=pro)
+> 的申请能力验证 demo（English: [README.en.md](README.en.md)）。
 > 它把 agent 会话日志规范化为 [loongsuite-pilot](https://github.com/alibaba/loongsuite-pilot)
 > 的 GenAI 事件 schema，支持 **x86 与 riscv64 交叉编译**，并在 `qemu-riscv64` 用户模式直接运行验证。
 > **CI 在每次 push 时自动完成双架构构建、跨架构一致性测试与 riscv64 冒烟运行。**
@@ -18,16 +19,22 @@
 | 内容脱敏 | `--content` 输出 Opt-In 内容，`--mask` 以 FNV-1a 指纹替代明文 | v0.6 |
 | 采集时间与追踪 | `observed_time_unix_nano` + W3C `trace_id`/`span_id`（同会话同 trace） | v0.7 |
 | 多 agent 归一化 | `--agent codex` 以字段别名表解析 Codex 原生日志 | v0.8 |
+| 运维命令与架构感知 | `mini-pilot status`（版本/构建架构/运行架构）、事件含 `host.arch`、`scripts/smoke.sh` 端到端冒烟 | v0.11 |
+
+> v0.9-v0.11 的转义安全、CI、status/冒烟链路分别对应目标项目"产出要求"中的
+> 可靠性、可持续验证（CI）与"安装→启动→采集/输出"可复现验收项。
 
 ## 快速开始
 
 ```bash
 make all                                    # 构建 x86 + riscv64
+./build/mini-pilot status                   # 运维状态命令（双架构可运行）
 make run-x86                                # 本机运行（claude-code 格式）
 make run-riscv                              # qemu-riscv64 运行
 ./build/mini-pilot --agent codex tests/fixtures/raw-codex.jsonl   # codex 格式
 ./build/mini-pilot tests/fixtures/raw-claude.jsonl --content --mask  # 脱敏输出
 make test                                   # 4 项测试
+bash scripts/smoke.sh                       # 端到端冒烟（安装检查→构建→启动→采集→校验）
 ```
 
 依赖：`gcc`、`riscv64-linux-gnu-gcc`、`qemu-riscv64`、`python3`（测试断言用）。
@@ -87,4 +94,4 @@ agent 会话日志(JSONL, 各家格式不同)          统一 GenAI 事件(JSONL
 
 ## License
 
-MIT（与学习对象仓库一致）
+Apache-2.0（与学习对象仓库 loongsuite-pilot 一致）
